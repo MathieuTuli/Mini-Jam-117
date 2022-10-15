@@ -10,12 +10,10 @@ class Player(pg.sprite.Sprite):
                  origin: pg.math.Vector2):
         self.health = 10
         pg.sprite.Sprite.__init__(self)
-        self.surf = pg.Surface(size)
-        self.rect = self.surf.get_rect(topleft=-size / 2)
         img = pg.image.load(path)
-        img = pg.transform.scale(img, self.rect.size)
+        img = pg.transform.scale(img, size)
         self.image = img.convert_alpha()
-        # self.surf.fill((0, 255, 0))
+        self.rect = self.image.get_rect(topleft=-size / 2)
         self.gun = Gun(size=pg.math.Vector2(5, 5),
                        origin=origin,
                        offset=pg.math.Vector2(size.x, 0))
@@ -52,7 +50,6 @@ class Player(pg.sprite.Sprite):
         self.gun.rotate(mouse_pos)
 
     def render(self, screen):
-        # screen.blit(self.surf, self.rect)
         screen.blit(self.image, self.rect)
         self.gun.render(screen)
 
@@ -75,8 +72,6 @@ class Bullet(pg.sprite.Sprite):
                  vel: pg.math.Vector2,
                  angle: int, size: pg.math.Vector2,):
         pg.sprite.Sprite.__init__(self)
-        self.surf = pg.Surface(size)
-        self.rect = self.surf.get_rect()
         # self.surf.fill((255, 255, 0))
 
         self.range = range
@@ -84,8 +79,9 @@ class Bullet(pg.sprite.Sprite):
         self.origin, self.pos = pos - size / 2, pos - size / 2
         img = pg.image.load(path)
         img = pg.transform.rotate(
-            pg.transform.scale(img, self.rect.size), angle + 90)
+            pg.transform.scale(img, size), angle + 90)
         self.image = img.convert_alpha()
+        self.rect = self.image.get_rect()
 
     def update(self, dt, *args, **kwargs):
         self.pos += self.vel * dt
@@ -103,11 +99,13 @@ class Gun(pg.sprite.Sprite):
                  origin: pg.math.Vector2, offset: pg.math.Vector2):
         pg.sprite.Sprite.__init__(self)
         self.offset = offset
-        self.surf = pg.Surface(size)
-        self.rect = self.surf.get_rect()
         img = pg.image.load('sprites/shotgun.png')
-        img = pg.transform.scale(img, self.rect.size)
+        img = pg.transform.scale(img, size)
         self.image = img.convert_alpha()
+        if True:
+            self.image = pg.Surface(size)
+            self.image.fill((0, 0, 0))
+        self.rect = self.image.get_rect()
         self.rimage = self.image
         self.origin = origin - pg.math.Vector2(self.rect.size) / 2
         self.center = origin + offset
@@ -141,7 +139,7 @@ class Gun(pg.sprite.Sprite):
 
     def render(self, screen):
         # screen.blit(self.rimage, self.center)
-        screen.blit(self.surf, self.center)
+        screen.blit(self.image, self.center)
 
 
 class Enemy(Player):
@@ -163,3 +161,18 @@ class Enemy(Player):
             self.kill()
         self.move(cam_coords)
         self.gun.rotate(self.player_pos)
+
+
+class Background(pg.sprite.Sprite):
+    def __init__(self, path: str, mask: str, center):
+        pg.sprite.Sprite.__init__(self)
+        self.image = pg.image.load(path).convert_alpha()
+        self.rect = self.image.get_rect(center=center)
+        mask_surf = pg.image.load(mask).convert_alpha()
+        self.mask = pg.mask.from_surface(mask_surf)
+
+    def update(self, cam_coords, *args, **kwargs):
+        self.rect.move_ip(cam_coords)
+
+    def render(self, screen):
+        screen.blit(self.image, self.rect)

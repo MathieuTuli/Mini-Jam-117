@@ -1,7 +1,7 @@
 import pygame as pg
 import numpy as np
 
-from actors import Player, Enemy
+from actors import Player, Enemy, Background
 
 
 class Game:
@@ -29,10 +29,10 @@ class Game:
         # pg.event.set_allowed([pg.QUIT, pg.KEYDOWN, pg.KEYUP])
         self.screen = pg.display.set_mode(
             self.size, pg.HWSURFACE | pg.DOUBLEBUF, 16)
-        self.bg = pg.image.load('sprites/bg.png').convert()
-        self.limits = self.bg.get_rect().size
-        self.bg_rect = self.bg.get_rect(center=self.size / 2)
         pg.mouse.set_cursor(pg.SYSTEM_CURSOR_CROSSHAIR)
+        self.bg = Background(path='sprites/bg.png',
+                             mask='sprites/bg_mask.png', center=self.size / 2)
+        self.bg.add(self.sprites)
         self.setup_players()
 
     def setup_players(self):
@@ -68,13 +68,13 @@ class Game:
         vel = 150
         if self.mvmt_keys:
             if pg.K_a in self.mvmt_keys and pg.K_d not in self.mvmt_keys:
-                moveX = vel if self.bg_rect.left < 0 else 0
+                moveX = vel if self.bg.rect.left < 0 else 0
             elif pg.K_d in self.mvmt_keys and pg.K_a not in self.mvmt_keys:
-                moveX = -vel if self.bg_rect.right > self.size.x else 0
+                moveX = -vel if self.bg.rect.right > self.size.x else 0
             if pg.K_w in self.mvmt_keys and pg.K_s not in self.mvmt_keys:
-                moveY = vel if self.bg_rect.top < 0 else 0
+                moveY = vel if self.bg.rect.top < 0 else 0
             elif pg.K_s in self.mvmt_keys and pg.K_w not in self.mvmt_keys:
-                moveY = -vel if self.bg_rect.bottom > self.size.y else 0
+                moveY = -vel if self.bg.rect.bottom > self.size.y else 0
         if moveY and moveX:
             moveY /= 1.2
             moveX /= 1.2
@@ -83,7 +83,9 @@ class Game:
 
     def loop(self):
         self.update_camera_coords()
-        self.bg_rect.move_ip(pg.math.Vector2(self.moveX, self.moveY))
+        # self.bg_rect.(pg.math.Vector2(self.moveX, self.moveY))
+        # self.bg_mask.move_ip(pg.math.Vector2(self.moveX, self.moveY))
+        # print(pg.sprite.collide_mask(self.bg, self.player))
         self.sprites.update(
             dt=self.dt,
             cam_coords=pg.math.Vector2(self.moveX, self.moveY),
@@ -98,7 +100,7 @@ class Game:
                     sprite.take_hit()
 
     def render(self):
-        self.screen.blit(self.bg, self.bg_rect)
+        # self.screen.blit(self.bg, self.bg_rect)
         for sprite in self.sprites:
             sprite.render(self.screen)
         pg.display.flip()
