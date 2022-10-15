@@ -6,14 +6,22 @@ import numpy as np
 
 class Player(pg.sprite.Sprite):
     def __init__(self, path: str,
+                 mask: str,
                  size: pg.math.Vector2,
                  origin: pg.math.Vector2):
         self.health = 10
+        self.ammo = 1000
         pg.sprite.Sprite.__init__(self)
         img = pg.image.load(path)
         img = pg.transform.scale(img, size)
         self.image = img.convert_alpha()
+        # self.surf = pg.Surface(size)
+        mask_surf = pg.image.load(mask)
+        mask_surf = pg.transform.scale(mask_surf, size)
+        mask_surf = mask_surf.convert_alpha()
+        self.mask = pg.mask.from_surface(mask_surf)
         self.rect = self.image.get_rect(topleft=-size / 2)
+        # self.rect = self.image.get_rect(topleft=-size / 2)
         self.gun = Gun(size=pg.math.Vector2(5, 5),
                        origin=origin,
                        offset=pg.math.Vector2(size.x, 0))
@@ -54,14 +62,16 @@ class Player(pg.sprite.Sprite):
         self.gun.render(screen)
 
     def shoot(self, groups):
-        bullet = Bullet('sprites/ghost.png', speed=1000,
-                        pos=self.gun.center,
-                        angle=self.gun.angle,
-                        range=100,
-                        vel=(self.gun.center - self.rect.center),
-                        size=pg.math.Vector2(30, 30))
-        for g in groups:
-            bullet.add(g)
+        if self.ammo:
+            self.ammo = max(0, self.ammo - 1)
+            bullet = Bullet('sprites/bullet.png', speed=800,
+                            pos=self.gun.center,
+                            angle=self.gun.angle,
+                            range=200,
+                            vel=(self.gun.center - self.rect.center),
+                            size=pg.math.Vector2(30, 30))
+            for g in groups:
+                bullet.add(g)
 
 
 class Bullet(pg.sprite.Sprite):
@@ -79,8 +89,9 @@ class Bullet(pg.sprite.Sprite):
         self.origin, self.pos = pos - size / 2, pos - size / 2
         img = pg.image.load(path)
         img = pg.transform.rotate(
-            pg.transform.scale(img, size), angle + 90)
+            pg.transform.scale(img, size), angle + 0)
         self.image = img.convert_alpha()
+        self.mask = pg.mask.from_surface(self.image)
         self.rect = self.image.get_rect()
 
     def update(self, dt, *args, **kwargs):
@@ -144,11 +155,12 @@ class Gun(pg.sprite.Sprite):
 
 class Enemy(Player):
     def __init__(self, path: str,
+                 mask: str,
                  size: pg.math.Vector2,
                  origin: pg.math.Vector2,
                  player_pos: pg.math.Vector2,
                  speed: float):
-        super(Enemy, self).__init__(path, size, origin)
+        super(Enemy, self).__init__(path, mask, size, origin)
         self.player_pos = player_pos
         self.health = 2
         self.speed = speed

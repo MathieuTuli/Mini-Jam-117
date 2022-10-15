@@ -11,6 +11,7 @@ class Game:
         self.fps = fps
         self.running = 1
         self.screen = None
+        self.score = 0
         self.clock = pg.time.Clock()
         self.size = pg.math.Vector2(w, h)
         self.mvmt_keys = list()
@@ -30,6 +31,7 @@ class Game:
         self.screen = pg.display.set_mode(
             self.size, pg.HWSURFACE | pg.DOUBLEBUF, 16)
         pg.mouse.set_cursor(pg.SYSTEM_CURSOR_CROSSHAIR)
+        self.font = pg.font.Font('freesansbold.ttf', 20)
         self.bg = Background(path='sprites/bg.png',
                              mask='sprites/bg_mask.png', center=self.size / 2)
         self.bg.add(self.sprites)
@@ -37,12 +39,15 @@ class Game:
 
     def setup_players(self):
         self.player = Player('sprites/ghost.png',
-                             pg.math.Vector2(30, 30), origin=self.size / 2)
+                             'sprites/ghost_mask.png',
+                             pg.math.Vector2(30, 30) * 2,
+                             origin=self.size / 2)
         self.player.add(self.sprites)
-        for i in range(1):
-            enemy = Enemy('sprites/ghost.png',
-                          pg.math.Vector2(30, 30),
-                          origin=self.size / 3,
+        for i in range(100):
+            enemy = Enemy('sprites/zombie.png',
+                          'sprites/zombie_mask.png',
+                          pg.math.Vector2(15, 30) * 2,
+                          origin=self.size / 3 + pg.math.Vector2(i, i),
                           player_pos=self.size / 2,
                           speed=1)
             enemy.add(self.sprites)
@@ -67,13 +72,52 @@ class Game:
         sprint = 1 if pg.K_LSHIFT in self.mvmt_keys else 1
         vel = 150
         if self.mvmt_keys:
-            if pg.K_a in self.mvmt_keys and pg.K_d not in self.mvmt_keys:
+            collision_coords = pg.sprite.collide_mask(self.player, self.bg)
+            left, right, top, bottom = False, False, False, False
+            if collision_coords is None:
+                for enemy in self.enemies:
+                    collision_coords = pg.sprite.collide_mask(
+                        self.player, enemy)
+                    if collision_coords is not None:
+                        break
+            if collision_coords is not None:
+                collision_coords = (pg.math.Vector2(collision_coords))
+                if collision_coords.x == 0:
+                    left = True
+                elif collision_coords.x == self.player.rect.size[0] - 1:
+                    right = True
+                if collision_coords.y == 0:
+                    top = True
+                elif collision_coords.y == self.player.rect.size[1] - 1:
+                    bottom = True
+                if not any([left, right, top, bottom]):
+                    if (collision_coords.x < self.player.rect.size[0] / 2 and
+                            collision_coords.y < self.player.rect.size[1] / 2):
+                        left = True
+                        top = True
+                    elif (collision_coords.x < self.player.rect.size[0] / 2 and
+                            collision_coords.y > self.player.rect.size[1] / 2):
+                        left = True
+                        bottom = True
+                    elif (collision_coords.x > 2 + self.player.rect.size[0] / 2 and
+                            collision_coords.y < self.player.rect.size[1] / 2):
+                        right = True
+                        top = True
+                    elif (collision_coords.x > 2 + self.player.rect.size[0] / 2 and
+                            collision_coords.y > self.player.rect.size[1] / 2):
+                        right = True
+                        bottom = True
+            if (pg.K_a in self.mvmt_keys and pg.K_d not in self.mvmt_keys
+                    and not left):
                 moveX = vel if self.bg.rect.left < 0 else 0
-            elif pg.K_d in self.mvmt_keys and pg.K_a not in self.mvmt_keys:
+            elif (pg.K_d in self.mvmt_keys and pg.K_a not in self.mvmt_keys
+                    and not right):
                 moveX = -vel if self.bg.rect.right > self.size.x else 0
-            if pg.K_w in self.mvmt_keys and pg.K_s not in self.mvmt_keys:
+            if (pg.K_w in self.mvmt_keys and pg.K_s not in self.mvmt_keys
+                    and not top):
                 moveY = vel if self.bg.rect.top < 0 else 0
-            elif pg.K_s in self.mvmt_keys and pg.K_w not in self.mvmt_keys:
+            elif (pg.K_s in self.mvmt_keys and pg.K_w not in self.mvmt_keys
+                    and not bottom):
                 moveY = -vel if self.bg.rect.bottom > self.size.y else 0
         if moveY and moveX:
             moveY /= 1.2
@@ -85,7 +129,6 @@ class Game:
         self.update_camera_coords()
         # self.bg_rect.(pg.math.Vector2(self.moveX, self.moveY))
         # self.bg_mask.move_ip(pg.math.Vector2(self.moveX, self.moveY))
-        # print(pg.sprite.collide_mask(self.bg, self.player))
         self.sprites.update(
             dt=self.dt,
             cam_coords=pg.math.Vector2(self.moveX, self.moveY),
@@ -96,6 +139,7 @@ class Game:
                 bullet, self.enemies, dokill=False)
             if sprites:
                 bullet.kill()
+                self.score += 1
                 for sprite in sprites:
                     sprite.take_hit()
 
@@ -103,6 +147,9 @@ class Game:
         # self.screen.blit(self.bg, self.bg_rect)
         for sprite in self.sprites:
             sprite.render(self.screen)
+        score = self.font.render(
+            f"Points: {self.score}", True, (0, 255, 0))
+        self.screen.blit(score, (10, 10))
         pg.display.flip()
 
     def cleanup(self):
