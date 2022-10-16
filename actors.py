@@ -29,6 +29,7 @@ class Player(pg.sprite.Sprite):
 
     def take_hit(self):
         self.health = max(self.health - 1, 0)
+        print(self.health)
 
     @property
     def dead(self):
@@ -43,18 +44,6 @@ class Player(pg.sprite.Sprite):
         self.gun.move(pos, pg.math.Vector2(self.rect.center))
 
     def update(self, mvmt_keys, mouse_pos, *args, **kwargs):
-        # moveX, moveY = 0, 0
-        # sprint = 1.1 if pg.K_LSHIFT in mvmt_keys else 1
-        # if mvmt_keys:
-        #     if pg.K_a in mvmt_keys and pg.K_d not in mvmt_keys:
-        #         moveX = -10
-        #     elif pg.K_d in mvmt_keys and pg.K_a not in mvmt_keys:
-        #         moveX = 10
-        #     if pg.K_w in mvmt_keys and pg.K_s not in mvmt_keys:
-        #         moveY = -10
-        #     elif pg.K_s in mvmt_keys and pg.K_w not in mvmt_keys:
-        #         moveY = 10
-        # self.move((moveX * sprint, moveY * sprint), mouse_pos)
         self.gun.rotate(mouse_pos)
 
     def render(self, screen):
@@ -153,26 +142,123 @@ class Gun(pg.sprite.Sprite):
         screen.blit(self.image, self.center)
 
 
-class Enemy(Player):
+class Zombie(pg.sprite.Sprite):
     def __init__(self, path: str,
                  mask: str,
+                 arm: str,
+                 arm_mask: str,
                  size: pg.math.Vector2,
+                 arm_size: pg.math.Vector2,
+                 attack_interval: float,
                  origin: pg.math.Vector2,
                  player_pos: pg.math.Vector2,
                  speed: float):
-        super(Enemy, self).__init__(path, mask, size, origin)
+        pg.sprite.Sprite.__init__(self)
         self.player_pos = player_pos
         self.health = 2
         self.speed = speed
+        img = pg.image.load(path)
+        img = pg.transform.scale(img, size)
+        self.image = img.convert_alpha()
+        self.can_attack = True
+        self.time = 0.
+        self.attack_interval = attack_interval
+        # self.surf = pg.Surface(size)
+        mask_surf = pg.image.load(mask)
+        mask_surf = pg.transform.scale(mask_surf, size)
+        mask_surf = mask_surf.convert_alpha()
+        self.mask = pg.mask.from_surface(mask_surf)
+        self.rect = self.image.get_rect(topleft=-size / 2)
+        self.origin = origin - pg.math.Vector2(self.rect.size) / 2
+
+        # ARMS
+        # LEFT
+        img = pg.image.load(arm)
+        img = pg.transform.rotate(pg.transform.scale(img, arm_size), 0)
+        self.left_arm = img.convert_alpha()
+        self.left_arm_rect = self.left_arm.get_rect()
+        self.rlarm = self.left_arm
+
+        # LEFT MASK
+        # mask_surf = pg.image.load(arm_mask)
+        # mask_surf = pg.transform.scale(mask_surf, size)
+        # mask_surf = mask_surf.convert_alpha()
+        # self.left_arm_mask = pg.mask.from_surface(mask_surf)
+
+        # RIGHT
+        img = pg.image.load(arm)
+        img = pg.transform.rotate(pg.transform.scale(img, arm_size), 0)
+        self.right_arm = img.convert_alpha()
+        self.right_arm_rect = self.right_arm.get_rect()
+        self.rrarm = self.right_arm
+
+        # RIGHT MASK
+        # mask_surf = pg.image.load(arm_mask)
+        # mask_surf = pg.transform.scale(mask_surf, size)
+        # mask_surf = mask_surf.convert_alpha()
+        # self.right_arm_mask = pg.mask.from_surface(mask_surf)
+
+        self.set(origin)
+
+    def attack(self):
+        if self.can_attack:
+            self.can_attack = False
+            return True
+        else:
+            return False
+
+    def take_hit(self):
+        self.health = max(self.health - 1, 0)
+
+    @property
+    def dead(self):
+        return self.health <= 0
+
+    def move(self, pos: Tuple[int, int]):
+        self.rect.move_ip(pos)
+        self.origin = pg.math.Vector2(self.rect.center)
+        self.left_arm_rect.move_ip(pos)
+        self.right_arm_rect.move_ip(pos)
+
+    def set(self, pos: Tuple[int, int]):
+        self.rect.move_ip(pos)
+        self.left_arm_rect.move_ip(
+            pos - pg.math.Vector2(self.left_arm_rect.size[0] * 1.1,
+                                  self.left_arm_rect.size[1] * 0.3))
+        self.right_arm_rect.move_ip(
+            pos + pg.math.Vector2(-self.right_arm_rect.size[0] * 0.8,
+                                  -self.right_arm_rect.size[1] * .3))
+
+    def rotate_arms(self, pos):
+        point = pos - self.origin
+        angle = np.arctan2(point.x, point.y) * (180 / np.pi) - 90
+        # if pos.x > self.origin.x:
+        #     self.llarm = pg.transform.rotate(
+        #         pg.transform.flip(self.left_arm, False, True), angle)
+        #     self.rlarm = pg.transform.rotate(
+        #         pg.transform.flip(self.right_arm, False, True), angle)
+        # else:
+        self.rlarm = pg.transform.rotate(self.left_arm, angle)
+        self.rrarm = pg.transform.rotate(self.right_arm, angle)
 
     def shoot(self):
         ...
 
     def update(self, dt, cam_coords, *args, **kwargs):
+        if not self.can_attack and self.time < self.attack_interval:
+            self.time += dt
+        else:
+            self.time = 0
+            self.can_attack = True
         if self.dead:
             self.kill()
         self.move(cam_coords)
-        self.gun.rotate(self.player_pos)
+        # self.rotate_arms(self.player_pos)
+
+    def render(self, screen):
+        screen.blit(self.image, self.rect)
+        screen.blit(self.rlarm, self.left_arm_rect)
+        screen.blit(self.rrarm, self.right_arm_rect)
 
 
 class Background(pg.sprite.Sprite):

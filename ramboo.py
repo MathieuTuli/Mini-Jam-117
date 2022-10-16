@@ -1,7 +1,7 @@
 import pygame as pg
 import numpy as np
 
-from actors import Player, Enemy, Background
+from actors import Player, Zombie, Background
 
 
 class Game:
@@ -38,18 +38,22 @@ class Game:
         self.setup_players()
 
     def setup_players(self):
-        self.player = Player('sprites/ghost.png',
-                             'sprites/ghost_mask.png',
-                             pg.math.Vector2(30, 30) * 2,
+        self.player = Player(path='sprites/ghost.png',
+                             mask='sprites/ghost_mask.png',
+                             size=pg.math.Vector2(30, 30) * 2,
                              origin=self.size / 2)
         self.player.add(self.sprites)
-        for i in range(100):
-            enemy = Enemy('sprites/zombie.png',
-                          'sprites/zombie_mask.png',
-                          pg.math.Vector2(15, 30) * 2,
-                          origin=self.size / 3 + pg.math.Vector2(i, i),
-                          player_pos=self.size / 2,
-                          speed=1)
+        for i in range(1):
+            enemy = Zombie(path='sprites/zombie.png',
+                           mask='sprites/zombie_mask.png',
+                           arm='sprites/zombie_arm.png',
+                           arm_mask='sprites/zombie_arm_mask.png',
+                           size=pg.math.Vector2(15, 30) * 4,
+                           arm_size=pg.math.Vector2(30, 10) * 4,
+                           attack_interval=2,
+                           origin=self.size / 3 + pg.math.Vector2(i, i),
+                           player_pos=self.size / 2,
+                           speed=1)
             enemy.add(self.sprites)
             enemy.add(self.enemies)
 
@@ -71,15 +75,19 @@ class Game:
         moveX, moveY = 0, 0
         sprint = 1 if pg.K_LSHIFT in self.mvmt_keys else 1
         vel = 150
+        collision_coords = None
+        for enemy in self.enemies:
+            collision_coords = pg.sprite.collide_mask(
+                self.player, enemy)
+            # TODO constrain with all collisions
+            if collision_coords is not None:
+                if enemy.attack():
+                    self.player.take_hit()
         if self.mvmt_keys:
-            collision_coords = pg.sprite.collide_mask(self.player, self.bg)
+            bg_collision_coords = pg.sprite.collide_mask(self.player, self.bg)
             left, right, top, bottom = False, False, False, False
-            if collision_coords is None:
-                for enemy in self.enemies:
-                    collision_coords = pg.sprite.collide_mask(
-                        self.player, enemy)
-                    if collision_coords is not None:
-                        break
+            collision_coords = collision_coords if collision_coords is not \
+                None else bg_collision_coords
             if collision_coords is not None:
                 collision_coords = (pg.math.Vector2(collision_coords))
                 if collision_coords.x == 0:
@@ -139,12 +147,12 @@ class Game:
                 bullet, self.enemies, dokill=False)
             if sprites:
                 bullet.kill()
-                self.score += 1
                 for sprite in sprites:
                     sprite.take_hit()
+                    if sprite.dead:
+                        self.score += 1
 
     def render(self):
-        # self.screen.blit(self.bg, self.bg_rect)
         for sprite in self.sprites:
             sprite.render(self.screen)
         score = self.font.render(
